@@ -1,5 +1,5 @@
 /*
- * NDI Client to JACK (JACK Audio Connection Kit) Output
+ * NDI Client to JACK (Jack Audio Connection Kit) Output
  * 
  * This program can be used and distrubuted without resrictions
  */
@@ -14,6 +14,7 @@
 #include <signal.h>
 #include <ctime>
 #include <unistd.h>
+#include <mongoose.h>
 
 #include <Processing.NDI.Lib.h>
 #include <jack/jack.h>
@@ -30,12 +31,30 @@ static void signal_handler(int sig){
   exit(0);
 }
 
+static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data){
+  if (ev == MG_EV_HTTP_MSG){
+  struct mg_http_message *hm = (struct mg_http_message *) ev_data;
+   if(mg_http_match_uri(hm, "/ws")){ //upgrade to WebSocket
+      mg_ws_upgrade(c, hm, NULL);
+   }else if(mg_http_match_uri(hm, "/rest")) { //handle REST events
+      mg_http_reply(c, 200, "", "{\"result\": %d}\n", 123);
+   }else{ // Serve static files
+      struct mg_http_serve_opts opts = {.root_dir = "."};
+      mg_http_serve_dir(c, (mg_http_message*)ev_data, &opts);
+   }
+  }else if (ev == MG_EV_WS_MSG){
+    // Got websocket frame. Received data is wm->data. Echo it back!
+    struct mg_ws_message *wm = (struct mg_ws_message *) ev_data;
+    mg_ws_send(c, wm->data.ptr, wm->data.len, WEBSOCKET_OP_TEXT);
+  }
+}
+
 /**
  * The process callback for this JACK application is called in a
  * special realtime thread once for each audio cycle.
  */
 
-int process (jack_nframes_t nframes, void *arg){
+int process(jack_nframes_t nframes, void *arg){
   jack_default_audio_sample_t *out1, *out2;
   //Get JACK Audio Buffers
   out1 = (jack_default_audio_sample_t*)jack_port_get_buffer (output_port1, nframes);
@@ -96,7 +115,7 @@ int main (int argc, char *argv[]){
   if(jack_client == NULL){
    fprintf (stderr, "jack_client_open() failed, ""status = 0x%2.0x\n", status);
    if(status & JackServerFailed){
-	fprintf (stderr, "Unable to connect to JACK server\n");
+	  fprintf (stderr, "Unable to connect to JACK server\n");
    }
    exit (1);
   }
@@ -107,10 +126,9 @@ int main (int argc, char *argv[]){
    client_name = jack_get_client_name(jack_client);
    fprintf (stderr, "unique name `%s' assigned\n", client_name);
   }
-  //This callback is called on every every time JACK does work - every audio sample
-  jack_set_process_callback (jack_client, process, nullptr);
-  //JACK shutdown callback - gets called on JACK shutdown
-  jack_on_shutdown (jack_client, jack_shutdown, 0);
+  
+  jack_set_process_callback (jack_client, process, nullptr); //This callback is called on every every time JACK does work - every audio sample
+  jack_on_shutdown (jack_client, jack_shutdown, 0); //JACK shutdown callback - gets called on JACK shutdown
   
   /* create two output JACK ports */
   output_port1 = jack_port_register (jack_client, "output1", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
@@ -193,9 +211,14 @@ int main (int argc, char *argv[]){
 
   // Destroy the NDI finder. We needed to have access to the pointers to p_sources[0]
   NDIlib_find_destroy(pNDI_find);
-
+  
+  struct mg_mgr mgr;                                
+  mg_mgr_init(&mgr);
+  mg_http_listen(&mgr, "ws://0.0.0.0:80", fn, NULL);   // Create WebSocket and HTTP connection
+  for (;;) mg_mgr_poll(&mgr, 1000);  // Block forever
   /* keep running until the Ctrl+C */
   while(1){
+    printf("NDI sources (%s found).\n","Test");
    sleep(1);
   }
   // Free the NDI frame-sync
