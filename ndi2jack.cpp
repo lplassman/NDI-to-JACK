@@ -229,7 +229,7 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data){
         }  
        }
        if(conflict == 0){ //since this is not running on a receiver - display
-        std::cout << "Source IP: " << p_sources[i].p_url_address << std::endl;
+        //std::cout << "Source IP: " << p_sources[i].p_url_address << std::endl;
         if(source_json == ""){
          source_json += "\""+source_id + "\":{\"name\":\""+ndi_string+"\",\"url\":\""+url_string+"\"}";  
         }else{
