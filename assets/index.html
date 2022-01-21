@@ -76,7 +76,8 @@
      for(id in source_list){
       console.log(source_list[id]);
       var source_name = source_list[id].name;
-      source_html += "<div class='d-box'><h2 class='header'>" + source_name + "</h2><div class='d-box-container'><button class='button-primary' onclick='connect_source(\""+id+"\")''>Connect</button></div></div>";
+      var source_url = source_list[id].url;
+      source_html += "<div class='d-box'><h2 class='header'>" + source_name + "</h2><h4 class='header'>" + source_url + "</h4><div class='d-box-container'><button class='button-primary' onclick='connect_source(\""+id+"\")''>Connect</button></div></div>";
       console.log(source_html);
      }
      if(source_html != ""){
