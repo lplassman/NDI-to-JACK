@@ -306,7 +306,7 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data){
     }
 
     if(prefix_string == "save_streams"){
-     std::ofstream preset_file("presets.txt");
+     std::ofstream preset_file("/opt/ndi2jack/assets/presets.txt");
      for(uint32_t i = 0; i < no_receivers; i++){
       if(ndi_running_name[i] != ""){ //make sure a receiver is stored before trying to save in file
       preset_file << ndi_running_name[i];
@@ -331,7 +331,7 @@ int main (int argc, char *argv[]){
 	if (!pNDI_find) return 0; //error out if the NDI finder can't be created
 
   std::string output_text; //preset file is temporary stored in this variable
-  std::ifstream preset_file("presets.txt"); //open the presets file
+  std::ifstream preset_file("/opt/ndi2jack/assets/presets.txt"); //open the presets file
   while(getline(preset_file, output_text)){
    int stored = 0;
    int receiver_id = 0;
