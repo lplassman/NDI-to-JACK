@@ -111,7 +111,7 @@ receive_audio::receive_audio(const char* source, const char *client_name): m_pND
   }
   if(status & JackNameNotUnique){
    client_name = jack_get_client_name(jack_client);
-   fprintf (stderr, "unique name `%s' assigned\n", client_name);
+   //fprintf (stderr, "unique name `%s' assigned\n", client_name);
   }
   
   jack_set_process_callback (jack_client, ::process_callback, this); //This callback is called on every every time JACK does work - every audio sample
@@ -220,6 +220,7 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data){
       discover_json = "{\"prefix\":\"discover_source\",\"action\":\"display\",\"source_list\":{";
       for(uint32_t i = 0; i < no_sources; i++){
        std::string ndi_string = p_sources[i].p_ndi_name;
+       std::string url_string = p_sources[i].p_url_address;
        std::string source_id = std::to_string(i); 
        int conflict = 0;
        for(uint32_t i = 0; i < no_receivers; i++){ //check for conflicts
@@ -230,9 +231,9 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data){
        if(conflict == 0){ //since this is not running on a receiver - display
         std::cout << "Source IP: " << p_sources[i].p_url_address << std::endl;
         if(source_json == ""){
-         source_json += "\""+source_id + "\":{\"name\":\""+ndi_string+"\"}";  
+         source_json += "\""+source_id + "\":{\"name\":\""+ndi_string+"\",\"url\":\""+url_string+"\"}";  
         }else{
-         source_json += ",\""+source_id + "\":{\"name\":\""+ndi_string+"\"}";  
+         source_json += ",\""+source_id + "\":{\"name\":\""+ndi_string+"\",\"url\":\""+url_string+"\"}";  
         }
        }
       }
