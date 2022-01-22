@@ -2,7 +2,7 @@
 
 set -eu
 
-echo "Starting install of V4L2 to NDI for Raspberry Pi 4 64-bit..."
+echo "Starting install of NDI to JACK for Raspberry Pi 4 64-bit..."
 
 echo "Installing prerequisites..."
 sudo bash ./preinstall.sh
