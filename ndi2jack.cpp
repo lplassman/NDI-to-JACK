@@ -46,6 +46,7 @@ struct receive_audio {
   NDIlib_framesync_instance_t m_pNDI_framesync; //NDI framesync
   jack_port_t *out_port1, *out_port2;
   jack_client_t *jack_client;
+  jack_nframes_t jack_sample_rate;
 	std::atomic<bool> m_exit;	// Are we ready to exit
   void receive(void); // This is called to receive frames		
   static void jack_shutdown(void *arg); //This is called when JACK is shutdown
@@ -58,7 +59,7 @@ int receive_audio::process(jack_nframes_t nframes){
   out2 = (jack_default_audio_sample_t*)jack_port_get_buffer (out_port2, nframes);
   
   NDIlib_audio_frame_v2_t audio_frame;
-  NDIlib_framesync_capture_audio(m_pNDI_framesync, &audio_frame, 44100, 0, nframes);
+  NDIlib_framesync_capture_audio(m_pNDI_framesync, &audio_frame, jack_sample_rate, 2, nframes);
   //printf("Audio data received (%d samples).\n", audio_frame.no_samples);
   //std::cout << "Number of audio frames (JACK): " << nframes << std::endl;
   //std::cout << "Audio Frame Data (NDI): " << audio_frame.p_data << std::endl;
@@ -113,6 +114,8 @@ receive_audio::receive_audio(const char* source, const char *client_name): m_pND
    client_name = jack_get_client_name(jack_client);
    //fprintf (stderr, "unique name `%s' assigned\n", client_name);
   }
+
+  jack_sample_rate = jack_get_sample_rate(jack_client);
   
   jack_set_process_callback (jack_client, ::process_callback, this); //This callback is called on every every time JACK does work - every audio sample
   jack_on_shutdown (jack_client, receive_audio::jack_shutdown, 0); //JACK shutdown callback - gets called on JACK shutdown
