@@ -123,3 +123,7 @@ sudo cp ./ndi2jack.service /etc/systemd/system/
 sudo systemctl enable ndi2jack.service
 sudo systemctl start ndi2jack.service
 ```
+
+## Helpful links
+
+https://wiki.linuxaudio.org/wiki/list_of_jack_frame_period_settings_ideal_for_usb_interface
