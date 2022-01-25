@@ -80,7 +80,7 @@ sudo bash ./easy-install-generic-aarch64.sh
 Installation is now complete!
 
 
-## Usage
+## Usage for NDI to JACK converter
 
 Once the installation process is complete, it will create an executable file located at /opt/ndi2jack/bin/ndi2jack
 
@@ -89,7 +89,19 @@ The installer also creates a symlink to /usr/bin so that it can be run from a no
 To run and start the web server:
 
 ```
-ndi2jack
+sudo ndi2jack
+```
+
+## Usage for JACK to NDI converter
+
+Once the installation process is complete, it will create an executable file located at /opt/ndi2jack/bin/jack2ndi
+
+The installer also creates a symlink to /usr/bin so that it can be run from a normal terminal.
+
+To run (multiple instances can be run with different options for multiple NDI send instances):
+
+```
+sudo jack2ndi
 ```
 
 ## Install service file for starting ndi2jack on boot
@@ -100,6 +112,16 @@ By default this service file runs ndi2jack as the root user with realtime CPU sc
 sudo cp ./ndi2jack.service /etc/systemd/system/
 sudo systemctl enable ndi2jack.service
 sudo systemctl start ndi2jack.service
+```
+
+## Install service file for starting jack2ndi on boot
+
+By default this service file runs jack2ndi as the root user with realtime CPU scheduling. This also assumes that JACK is running as a service as the root user.
+
+```
+sudo cp ./jack2ndi.service /etc/systemd/system/
+sudo systemctl enable jack2ndi.service
+sudo systemctl start jack2ndi.service
 ```
 
 ## Helpful links

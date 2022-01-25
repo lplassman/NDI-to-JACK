@@ -1,0 +1,16 @@
+[Unit]
+Description=JACK to NDI Converter
+After=network-online.target jackd.service
+
+[Service]
+User=root
+LimitRTPRIO=infinity
+LimitMEMLOCK=infinity
+CPUSchedulingPolicy=rr
+CPUSchedulingPriority=99
+ExecStart=/opt/ndi2jack/bin/jack2ndi
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
