@@ -1,10 +1,11 @@
 # NDI to JACK
 
 NDI to JACK is an application that connects an NDI audio source to JACK for use as an audio output into other JACK compatible applications.
+The JACK to NDI application, which is included, creates an NDI source from a JACK input.
 
 ## Features
 - Manage NDI connections using the integrated web server
-- Support for up to 30 simultaneous unique NDI audio sources
+- Support for up to 30 simultaneous 2 channel unique NDI audio sources
 - Uses the latest version of NDI - NDI 5
 - Nearly zero latency
 
