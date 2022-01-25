@@ -24,10 +24,13 @@ fi
 cp lib/* "$LIB_DIR"
 
 cp build/ndi2jack "$BIN_DIR"
+cp build/jack2ndi "$BIN_DIR"
 
 cp assets/* "$ASSETS_DIR"
 
 chmod +x "$BIN_DIR/ndi2jack"
+chmod +x "$BIN_DIR/jack2ndi"
 
 #symlink to the /usr/bin directory
 ln -s "$BIN_DIR/ndi2jack" /usr/bin/
+ln -s "$BIN_DIR/jack2ndi" /usr/bin/
