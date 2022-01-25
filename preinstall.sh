@@ -5,7 +5,7 @@ apt-get update
 #install prerequisites
 apt-get -y install --no-install-recommends \
 	build-essential \
-	libjack-jack2-dev \
+	libjack-jackd2-dev \
 	qjackctl \
 	jackd \	
     avahi-daemon \
