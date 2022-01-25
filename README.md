@@ -12,7 +12,7 @@ NDI to JACK is an application that connects an NDI audio source to JACK for use 
 
 This software is tested with a Raspberry Pi 4 (32 and 64-bit). This software does not require much CPU power and so other lower power devices could possibly work.
 
-### Install on Raspberry Pi OS 64-bit
+### Download required installation files
 
 Make sure git is installed.
 
@@ -26,32 +26,32 @@ Clone this repository and `cd` into it.
 git clone https://github.com/windows10luke/NDI-to-JACK.git && cd NDI-to-JACK
 ```
 
-Compile and install
+### Install on Raspberry Pi 4 64-bit
+
+Run this compile and install script
 
 ```
-sudo bash ./easy-install-rpi-aarch64.sh
+sudo bash ./easy-install-rpi4-aarch64.sh
 ```
 Installation is now complete!
 
 
-### Install on Raspberry Pi OS 32-bit
+### Install on Raspberry Pi 4 32-bit
 
-Make sure git is installed.
-
-```
-sudo apt update
-sudo apt install git
-```
-Clone this repository and `cd` into it.
+Run this compile and install script
 
 ```
-git clone https://github.com/windows10luke/NDI-to-JACK.git && cd NDI-to-JACK
+sudo bash ./easy-install-rpi4-armhf.sh
 ```
+Installation is now complete!
 
-Compile and install
+
+### Install on Raspberry Pi 3 32-bit
+
+Run this compile and install script
 
 ```
-sudo bash ./easy-install-rpi-armhf.sh
+sudo bash ./easy-install-rpi3-armhf.sh
 ```
 Installation is now complete!
 
@@ -59,38 +59,15 @@ Installation is now complete!
 
 ### Install on x86_64 bit (Intel/AMD)
 
-Make sure git is installed.
-
-```
-sudo apt update
-sudo apt install git
-```
-Clone this repository and `cd` into it.
-
-```
-git clone https://github.com/windows10luke/NDI-to-JACK.git && cd NDI-to-JACK
-```
-
-Compile and install
+Run this compile and install script
 
 ```
 sudo bash ./easy-install-x86_64.sh
 ```
 Installation is now complete!
 
+
 ### Install on generic ARM64
-
-Make sure git is installed.
-
-```
-sudo apt update
-sudo apt install git
-```
-Clone this repository and `cd` into it.
-
-```
-git clone https://github.com/windows10luke/NDI-to-JACK.git && cd NDI-to-JACK
-```
 
 Compiling on generic ARM64 requires use of the NDI Advanced SDK. Due to licensing restrictions, the NDI Advanced SDK must be downloaded manually from NDI's website: ndi.tv
 Extract the downloaded NDI Advanced SDK .tar file and copy it to the NDI-to-JACK directory on the target device. This can be achieved by using FTP, SCP, or Samba.
@@ -101,6 +78,7 @@ Compile and install
 sudo bash ./easy-install-generic-aarch64.sh
 ```
 Installation is now complete!
+
 
 ## Usage
 
