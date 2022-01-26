@@ -22,6 +22,7 @@
 #include <thread>
 
 #include <getopt.h> 
+#include <condition_variable>
 
 #include <Processing.NDI.Lib.h>
 #include <jack/jack.h>

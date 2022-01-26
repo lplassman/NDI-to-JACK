@@ -20,6 +20,7 @@
 #include <thread>
 
 #include <getopt.h> 
+#include <condition_variable>
 
 #include <Processing.NDI.Lib.h>
 #include <jack/jack.h>
@@ -191,7 +192,7 @@ std::string ndi_running_name[no_receivers] = { "" };
 
 static void usage(FILE *fp, int argc, char **argv){
         fprintf(fp,
-                 "Usage: %s [options]\n\n"
+                 "Usage: JACK to NDI [options]\n\n"
                  "Version 1.0\n"
                  "Options:\n"
                  "-h | --help          Print this message\n"
