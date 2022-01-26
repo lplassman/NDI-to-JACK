@@ -28,7 +28,7 @@ NDIlib_find_create_t NDI_find_create_desc; /* Default settings for NDI find */
 NDIlib_find_instance_t pNDI_find;
 const NDIlib_source_t* p_sources = NULL;
 struct mg_mgr mgr;   
-
+bool auto_connect_jack_ports = true;
 
 //Function Definitions
 int process_callback(jack_nframes_t x, void *p);
@@ -37,7 +37,7 @@ std::string convertToString(char* a);
 
 
 struct receive_audio {
- receive_audio(const char* source, const char *client_name="NDI_recv"); //constructor
+ receive_audio(const char* source, const char *client_name="NDI_recv", bool auto_connect_ports=true); //constructor
  ~receive_audio(void); //destructor 
  public:
   int process(jack_nframes_t nframes);
@@ -86,7 +86,7 @@ void receive_audio::jack_shutdown(void *arg){
 }
 
 //Constructor
-receive_audio::receive_audio(const char* source, const char *client_name): m_pNDI_recv(NULL), m_pNDI_framesync(NULL), m_exit(false), jack_client(NULL), out_port1(NULL), out_port2(NULL){
+receive_audio::receive_audio(const char* source, const char *client_name, bool auto_connect_ports): m_pNDI_recv(NULL), m_pNDI_framesync(NULL), m_exit(false), jack_client(NULL), out_port1(NULL), out_port2(NULL){
   //printf("Starting Receiver for %s\n", source);
   const char **ports;
   const char *server_name = NULL;
@@ -143,21 +143,23 @@ receive_audio::receive_audio(const char* source, const char *client_name): m_pND
    * "input" to the backend, and capture ports are "output" from
    * it.
    */
-  ports = jack_get_ports (jack_client, NULL, NULL, JackPortIsPhysical|JackPortIsInput);
-  if(ports == NULL){
-   fprintf(stderr, "no physical playback ports\n");
-   exit (1);
-  }
+  if(auto_connect_ports == true){ //make sure auto connect is enabled
+   ports = jack_get_ports (jack_client, NULL, NULL, JackPortIsPhysical|JackPortIsInput);
+   if(ports == NULL){
+    fprintf(stderr, "no physical playback ports\n");
+    exit (1);
+   }
 
-  if(jack_connect (jack_client, jack_port_name (out_port1), ports[0])){
-   fprintf(stderr, "cannot connect output ports\n");
-  }
+   if(jack_connect (jack_client, jack_port_name (out_port1), ports[0])){
+    fprintf(stderr, "cannot connect output ports\n");
+   }
 
-  if(jack_connect (jack_client, jack_port_name (out_port2), ports[1])){
-   fprintf (stderr, "cannot connect output ports\n");
-  }
+   if(jack_connect (jack_client, jack_port_name (out_port2), ports[1])){
+    fprintf (stderr, "cannot connect output ports\n");
+   }
 
-  jack_free (ports);
+   jack_free (ports);
+  }
 
   // Create the receiver
 	m_pNDI_recv = NDIlib_recv_create_v3(&recv_create_desc);
@@ -297,7 +299,7 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data){
         } 
        }
       }
-      p_receivers[receiver_id] = new receive_audio(p_sources[source_id].p_ndi_name, "NDI_recv"); 
+      p_receivers[receiver_id] = new receive_audio(p_sources[source_id].p_ndi_name, "NDI_recv", auto_connect_jack_ports); 
      }else{
       //std::cout << "Receiver already running for:  " << p_sources[source_id].p_ndi_name << std::endl; 
      }
@@ -323,7 +325,46 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data){
   }
 }
 
+static void usage(FILE *fp, int argc, char **argv){
+        fprintf(fp,
+                 "Usage: %s [options]\n\n"
+                 "Version 1.0\n"
+                 "Options:\n"
+                 "-h | --help          Print this message\n"
+                 "-a | --auto-connect  Disable auto connect JACK ports (default to true)\n"
+                 "",
+                 argv[0], dev_name);
+}
+
+static const char short_options[] = "a";
+
+static const struct option
+long_options[] = {
+        { "help",   no_argument,       NULL, 'h' },
+        { "auto-connect", no_argument,       NULL, 'a' },
+        { 0, 0, 0, 0 }
+};
+
 int main (int argc, char *argv[]){
+  for (;;) {
+   int idx;
+   int c;
+   c = getopt_long(argc, argv,short_options, long_options, &idx);
+   if (-1 == c){
+    break;
+   }
+   switch(c){
+    case 'h':
+     usage(stdout, argc, argv);
+     exit(EXIT_SUCCESS);
+    case 'a':
+     auto_connect_jack_ports = false;
+     break;           
+    default:
+     usage(stderr, argc, argv);
+     exit(EXIT_FAILURE);
+   }
+  }
 
   if(!NDIlib_initialize()){	
 	 printf("Cannot run NDI."); // Cannot run NDI. Most likely because the CPU is not sufficient.
@@ -350,7 +391,7 @@ int main (int argc, char *argv[]){
      } 
     }
    }
-   p_receivers[receiver_id] = new receive_audio(ndi_name, "NDI_recv");
+   p_receivers[receiver_id] = new receive_audio(ndi_name, "NDI_recv", auto_connect_jack_ports);
   }
                                
   mg_mgr_init(&mgr);

@@ -22,6 +22,8 @@
 #include <Processing.NDI.Lib.h>
 #include <jack/jack.h>
 
+bool auto_connect_jack_ports = true;
+
 
 //Function Definitions
 int process_callback(jack_nframes_t x, void *p);
@@ -30,7 +32,7 @@ std::string convertToString(char* a);
 
 
 struct send_audio {
- send_audio(const char *ndi_server_name="NDI_send"); //constructor
+ send_audio(const char *ndi_server_name="NDI_send",bool auto_connect_ports=true); //constructor
  ~send_audio(void); //destructor 
  public:
   int process(jack_nframes_t nframes);
@@ -83,7 +85,7 @@ void send_audio::jack_shutdown(void *arg){
 }
 
 //Constructor
-send_audio::send_audio(const char *ndi_server_name): m_pNDI_send(NULL), m_exit(false), jack_client(NULL), in_port1(NULL), in_port2(NULL){
+send_audio::send_audio(const char *ndi_server_name, bool auto_connect_ports): m_pNDI_send(NULL), m_exit(false), jack_client(NULL), in_port1(NULL), in_port2(NULL){
   printf("Starting Sender for %s\n", ndi_server_name);
   const char **ports;
   const char *server_name = NULL;
@@ -143,21 +145,23 @@ send_audio::send_audio(const char *ndi_server_name): m_pNDI_send(NULL), m_exit(f
    * "input" to the backend, and capture ports are "output" from
    * it.
    */
-  ports = jack_get_ports (jack_client, NULL, NULL, JackPortIsPhysical|JackPortIsOutput);
-  if(ports == NULL){
-   fprintf(stderr, "no physical capture ports\n");
-   exit (1);
-  }
+  if(auto_connect_ports == true){ //make sure that auto connect of JACK ports is enabled
+   ports = jack_get_ports (jack_client, NULL, NULL, JackPortIsPhysical|JackPortIsOutput);
+   if(ports == NULL){
+    fprintf(stderr, "no physical capture ports\n");
+    exit (1);
+   }
 
-  if(jack_connect (jack_client, ports[0], jack_port_name (in_port1))){
-   fprintf(stderr, "cannot connect input ports\n");
-  }
+   if(jack_connect (jack_client, ports[0], jack_port_name (in_port1))){
+    fprintf(stderr, "cannot connect input ports\n");
+   }
 
-  if(jack_connect (jack_client, ports[1], jack_port_name (in_port2))){
-   fprintf (stderr, "cannot connect input ports\n");
-  }
+   if(jack_connect (jack_client, ports[1], jack_port_name (in_port2))){
+    fprintf (stderr, "cannot connect input ports\n");
+   }
 
-  jack_free (ports);
+   jack_free (ports);
+  }
 
   m_NDI_audio_frame.sample_rate = jack_sample_rate;
 	m_NDI_audio_frame.no_channels = 2;
@@ -183,8 +187,47 @@ static const int no_receivers = 30; //max number of receivers
 send_audio* p_receivers[no_receivers] = { 0 };
 std::string ndi_running_name[no_receivers] = { "" };
 
-int main (int argc, char *argv[]){
+static void usage(FILE *fp, int argc, char **argv){
+        fprintf(fp,
+                 "Usage: %s [options]\n\n"
+                 "Version 1.0\n"
+                 "Options:\n"
+                 "-h | --help          Print this message\n"
+                 "-a | --auto-connect  Disable auto connect JACK ports (default to true)\n"
+                 "",
+                 argv[0], dev_name);
+}
 
+static const char short_options[] = "a";
+
+static const struct option
+long_options[] = {
+        { "help",   no_argument,       NULL, 'h' },
+        { "auto-connect", no_argument,       NULL, 'a' },
+        { 0, 0, 0, 0 }
+};
+
+int main (int argc, char *argv[]){
+  for (;;) {
+   int idx;
+   int c;
+   c = getopt_long(argc, argv,short_options, long_options, &idx);
+   if (-1 == c){
+    break;
+   }
+   switch(c){
+    case 'h':
+     usage(stdout, argc, argv);
+     exit(EXIT_SUCCESS);
+    case 'a':
+     auto_connect_jack_ports = false;
+     break;           
+    default:
+     usage(stderr, argc, argv);
+     exit(EXIT_FAILURE);
+   }
+  }
+  
   if(!NDIlib_initialize()){	
 	 printf("Cannot run NDI."); // Cannot run NDI. Most likely because the CPU is not sufficient.
 	 return 0;
