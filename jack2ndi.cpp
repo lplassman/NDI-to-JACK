@@ -19,6 +19,8 @@
 #include <fstream> //for reading and writing preset file
 #include <thread>
 
+#include <getopt.h> 
+
 #include <Processing.NDI.Lib.h>
 #include <jack/jack.h>
 
@@ -195,7 +197,7 @@ static void usage(FILE *fp, int argc, char **argv){
                  "-h | --help          Print this message\n"
                  "-a | --auto-connect  Disable auto connect JACK ports (default to true)\n"
                  "",
-                 argv[0], dev_name);
+                 argv[0]);
 }
 
 static const char short_options[] = "a";
