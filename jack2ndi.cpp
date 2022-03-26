@@ -35,7 +35,7 @@ int process_callback(jack_nframes_t x, void *p);
 
 
 struct send_audio {
- send_audio(const char *ndi_server_name="NDI_send",bool auto_connect_ports=true); //constructor
+ send_audio(const char *client_name="NDI_send",const char *ndi_server_name,bool auto_connect_ports=true); //constructor
  ~send_audio(void); //destructor 
  public:
   int process(jack_nframes_t nframes);
@@ -88,7 +88,7 @@ void send_audio::jack_shutdown(void *arg){
 }
 
 //Constructor
-send_audio::send_audio(const char *ndi_server_name, bool auto_connect_ports): m_pNDI_send(NULL), m_exit(false), jack_client(NULL), in_port1(NULL), in_port2(NULL){
+send_audio::send_audio(const char *client_name="NDI_send", const char *ndi_server_name, bool auto_connect_ports): m_pNDI_send(NULL), m_exit(false), jack_client(NULL), in_port1(NULL), in_port2(NULL){
   printf("Starting Sender for %s\n", ndi_server_name);
   const char **ports;
   const char *server_name = NULL;
@@ -104,7 +104,7 @@ send_audio::send_audio(const char *ndi_server_name, bool auto_connect_ports): m_
   m_pNDI_send = NDIlib_send_create(&NDI_send_create_desc);
 
   /* open a client connection to the JACK server */
-  jack_client = jack_client_open ("NDI_send", options, &status, server_name);
+  jack_client = jack_client_open (client_name, options, &status, server_name);
   if(jack_client == NULL){
    fprintf (stderr, "jack_client_open() failed, ""status = 0x%2.0x\n", status);
    if(status & JackServerFailed){
@@ -197,23 +197,26 @@ static void usage(FILE *fp, int argc, char **argv){
                  "Options:\n"
                  "-h | --help          Print this message\n"
                  "-n | --ndi-name      NDI output stream name\n"
+                 "-j | --jack-name     JACK client name\n"
                  "-a | --auto-connect  Disable auto connect JACK ports (default to true)\n"
                  "",
                  argv[0]);
 }
 
-static const char short_options[] = "an:";
+static const char short_options[] = "n:j:a";
 
 static const struct option
 long_options[] = {
         { "help",   no_argument,       NULL, 'h' },
         { "ndi-name", required_argument, NULL, 'n' },
+        { "jack-name", required_argument, NULL, 'j' },
         { "auto-connect", no_argument,       NULL, 'a' },
         { 0, 0, 0, 0 }
 };
 
 int main (int argc, char *argv[]){
   ndi_name = (char*)"Stream"; //default NDI stream name
+  const char *client_name="NDI_send"; //default JACK client name
   for (;;) {
    int idx;
    int c;
@@ -227,6 +230,8 @@ int main (int argc, char *argv[]){
      exit(EXIT_SUCCESS);
     case 'n':
      ndi_name = optarg;  
+    case 'j':
+     client_name = optarg;   
     case 'a':
      auto_connect_jack_ports = false;
      break;           
@@ -243,7 +248,7 @@ int main (int argc, char *argv[]){
 
 	// Create a NDI finder	
 	
-   p_senders[0] = new send_audio(ndi_name);
+   p_senders[0] = new send_audio(client_name,ndi_name);
                                
   /* keep running until the Ctrl+C */
   while(1){
