@@ -104,7 +104,7 @@ send_audio::send_audio(const char *ndi_server_name, bool auto_connect_ports): m_
   m_pNDI_send = NDIlib_send_create(&NDI_send_create_desc);
 
   /* open a client connection to the JACK server */
-  jack_client = jack_client_open ("client_name", options, &status, server_name);
+  jack_client = jack_client_open ("NDI_send", options, &status, server_name);
   if(jack_client == NULL){
    fprintf (stderr, "jack_client_open() failed, ""status = 0x%2.0x\n", status);
    if(status & JackServerFailed){
