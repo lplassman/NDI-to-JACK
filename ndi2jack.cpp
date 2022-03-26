@@ -28,6 +28,7 @@
 #include <jack/jack.h>
 
 NDIlib_find_create_t NDI_find_create_desc; /* Default settings for NDI find */
+NDI_find_create_desc.show_local_sources = false; //don't include local sources when searching for NDI
 NDIlib_find_instance_t pNDI_find;
 const NDIlib_source_t* p_sources = NULL;
 struct mg_mgr mgr;   
