@@ -202,7 +202,7 @@ static void usage(FILE *fp, int argc, char **argv){
                  argv[0]);
 }
 
-static const char short_options[] = "a";
+static const char short_options[] = "an:";
 
 static const struct option
 long_options[] = {
