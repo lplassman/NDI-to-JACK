@@ -27,10 +27,10 @@
 
 bool auto_connect_jack_ports = true;
 
+static char             *ndi_name;
 
 //Function Definitions
 int process_callback(jack_nframes_t x, void *p);
-std::string convertToString(char* a);
 
 
 
@@ -186,16 +186,17 @@ int process_callback(jack_nframes_t x, void *p){
  return static_cast<send_audio*>(p)->process(x); 
 }
 
-static const int no_receivers = 30; //max number of receivers
-send_audio* p_receivers[no_receivers] = { 0 };
-std::string ndi_running_name[no_receivers] = { "" };
+static const int no_senders = 30; //max number of senders
+send_audio* p_senders[no_senders] = { 0 };
+std::string ndi_running_name[no_senders] = { "" };
 
 static void usage(FILE *fp, int argc, char **argv){
         fprintf(fp,
                  "Usage: JACK to NDI [options]\n\n"
-                 "Version 1.0\n"
+                 "Version 1.1\n"
                  "Options:\n"
                  "-h | --help          Print this message\n"
+                 "-n | --ndi-name      NDI output stream name\n"
                  "-a | --auto-connect  Disable auto connect JACK ports (default to true)\n"
                  "",
                  argv[0]);
@@ -206,11 +207,13 @@ static const char short_options[] = "a";
 static const struct option
 long_options[] = {
         { "help",   no_argument,       NULL, 'h' },
+        { "ndi-name", required_argument, NULL, 'n' },
         { "auto-connect", no_argument,       NULL, 'a' },
         { 0, 0, 0, 0 }
 };
 
 int main (int argc, char *argv[]){
+  ndi_name = (char*)"Stream" //default NDI stream name
   for (;;) {
    int idx;
    int c;
@@ -222,6 +225,8 @@ int main (int argc, char *argv[]){
     case 'h':
      usage(stdout, argc, argv);
      exit(EXIT_SUCCESS);
+    case 'n':
+     ndi_name = optarg;  
     case 'a':
      auto_connect_jack_ports = false;
      break;           
@@ -238,7 +243,7 @@ int main (int argc, char *argv[]){
 
 	// Create a NDI finder	
 	
-   p_receivers[0] = new send_audio("NDI_send");
+   p_senders[0] = new send_audio(ndi_name);
                                
   /* keep running until the Ctrl+C */
   while(1){
@@ -246,9 +251,4 @@ int main (int argc, char *argv[]){
   }
   
   exit (0);
-}
-
-std::string convertToString(char* a){
-  std::string s = a;
-  return s;
 }
