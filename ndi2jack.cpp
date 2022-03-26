@@ -28,7 +28,6 @@
 #include <jack/jack.h>
 
 NDIlib_find_create_t NDI_find_create_desc; /* Default settings for NDI find */
-NDI_find_create_desc.show_local_sources = false; //don't include local sources when searching for NDI
 NDIlib_find_instance_t pNDI_find;
 const NDIlib_source_t* p_sources = NULL;
 struct mg_mgr mgr;   
@@ -376,6 +375,7 @@ int main (int argc, char *argv[]){
 	}
 
 	// Create a NDI finder	
+  NDI_find_create_desc.show_local_sources = (bool)false; //don't include local sources when searching for NDI
 	pNDI_find = NDIlib_find_create_v2(&NDI_find_create_desc);
 	if (!pNDI_find) return 0; //error out if the NDI finder can't be created
 
