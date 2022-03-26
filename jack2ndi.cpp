@@ -213,7 +213,7 @@ long_options[] = {
 };
 
 int main (int argc, char *argv[]){
-  ndi_name = (char*)"Stream" //default NDI stream name
+  ndi_name = (char*)"Stream"; //default NDI stream name
   for (;;) {
    int idx;
    int c;
