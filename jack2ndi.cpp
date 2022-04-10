@@ -25,7 +25,7 @@
 #include <Processing.NDI.Lib.h>
 #include <jack/jack.h>
 
-bool auto_connect_jack_ports = true;
+bool auto_connect_jack_ports = false;
 
 static char             *ndi_name;
 static char             *client_name;
@@ -36,7 +36,7 @@ int process_callback(jack_nframes_t x, void *p);
 
 
 struct send_audio {
- send_audio(const char *client_name="NDI_send",const char *ndi_server_name="NDI_send",bool auto_connect_ports=true); //constructor
+ send_audio(const char *c_name="ndi",const char *n_name="NDI_send",bool a_ports=false); //constructor
  ~send_audio(void); //destructor 
  public:
   int process(jack_nframes_t nframes);
@@ -89,9 +89,9 @@ void send_audio::jack_shutdown(void *arg){
 }
 
 //Constructor
-send_audio::send_audio(const char *client_name, const char *ndi_server_name, bool auto_connect_ports): m_pNDI_send(NULL), m_exit(false), jack_client(NULL), in_port1(NULL), in_port2(NULL){
-  printf("Starting Sender for %s\n", ndi_server_name);
-  printf("Connecting to JACK as %s\n", client_name);
+send_audio::send_audio(const char *c_name, const char *n_name, bool a_ports): m_pNDI_send(NULL), m_exit(false), jack_client(NULL), in_port1(NULL), in_port2(NULL){
+  printf("Starting Sender for %s\n", n_name);
+  printf("Connecting to JACK as %s\n", c_name);
   const char **ports;
   const char *server_name = NULL;
   jack_options_t options = JackNullOption;
@@ -99,14 +99,14 @@ send_audio::send_audio(const char *client_name, const char *ndi_server_name, boo
 
   // Create an NDI source
 	NDIlib_send_create_t NDI_send_create_desc;
-	NDI_send_create_desc.p_ndi_name = ndi_server_name;
+	NDI_send_create_desc.p_ndi_name = n_name;
 	//NDI_send_create_desc.clock_audio = true;
   
   //Create the NDI sender using the description
   m_pNDI_send = NDIlib_send_create(&NDI_send_create_desc);
 
   /* open a client connection to the JACK server */
-  jack_client = jack_client_open (client_name, options, &status, server_name);
+  jack_client = jack_client_open (c_name, options, &status, server_name);
   if(jack_client == NULL){
    fprintf (stderr, "jack_client_open() failed, ""status = 0x%2.0x\n", status);
    if(status & JackServerFailed){
@@ -150,7 +150,7 @@ send_audio::send_audio(const char *client_name, const char *ndi_server_name, boo
    * "input" to the backend, and capture ports are "output" from
    * it.
    */
-  if(auto_connect_ports == true){ //make sure that auto connect of JACK ports is enabled
+  if(a_ports == true){ //make sure that auto connect of JACK ports is enabled
    ports = jack_get_ports (jack_client, NULL, NULL, JackPortIsPhysical|JackPortIsOutput);
    if(ports == NULL){
     fprintf(stderr, "no physical capture ports\n");
@@ -249,8 +249,10 @@ int main (int argc, char **argv){
 	}
 
 	// Create a NDI finder	
-	
-   p_senders[0] = new send_audio(client_name,ndi_name);
+	 printf("JACK Client Name %s\n", client_name);
+   printf("NDI Sender Name %s\n", ndi_name);
+   printf("Auto Connect Ports %s\n", auto_connect_jack_ports);
+   p_senders[0] = new send_audio(client_name,ndi_name,auto_connect_jack_ports);
                                
   /* keep running until the Ctrl+C */
   while(1){
