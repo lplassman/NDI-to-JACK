@@ -90,6 +90,7 @@ void send_audio::jack_shutdown(void *arg){
 //Constructor
 send_audio::send_audio(const char *client_name, const char *ndi_server_name, bool auto_connect_ports): m_pNDI_send(NULL), m_exit(false), jack_client(NULL), in_port1(NULL), in_port2(NULL){
   printf("Starting Sender for %s\n", ndi_server_name);
+  printf("Connecting to JACK as %s\n", client_name);
   const char **ports;
   const char *server_name = NULL;
   jack_options_t options = JackNullOption;
