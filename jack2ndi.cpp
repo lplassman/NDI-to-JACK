@@ -55,7 +55,8 @@ int send_audio::process(jack_nframes_t nframes){
   //Get JACK Audio Buffers
   in1 = (jack_default_audio_sample_t*)jack_port_get_buffer (in_port1, nframes);
   in2 = (jack_default_audio_sample_t*)jack_port_get_buffer (in_port2, nframes);
-  
+
+  if(NDIlib_send_get_no_connections(m_pNDI_send, 10000)){
   m_NDI_audio_frame.no_samples = nframes;
 
   m_NDI_audio_frame.p_data = (float*)malloc(nframes * 2 * sizeof(float));
@@ -77,6 +78,7 @@ int send_audio::process(jack_nframes_t nframes){
   // Send the NDI audio frame
   NDIlib_send_send_audio_v2(m_pNDI_send, &m_NDI_audio_frame);
   free(m_NDI_audio_frame.p_data); //free the audio frame
+  }
   return 0;      
 }
 
