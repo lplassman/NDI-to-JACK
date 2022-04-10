@@ -28,6 +28,7 @@
 bool auto_connect_jack_ports = true;
 
 static char             *ndi_name;
+static char             *client_name;
 
 //Function Definitions
 int process_callback(jack_nframes_t x, void *p);
@@ -215,9 +216,9 @@ long_options[] = {
         { 0, 0, 0, 0 }
 };
 
-int main (int argc, char *argv[]){
+int main (int argc, char **argv){
   ndi_name = (char*)"Stream"; //default NDI stream name
-  const char *client_name="NDI_send"; //default JACK client name
+  client_name = (char*)"NDI_send"; //default JACK client name
   for (;;) {
    int idx;
    int c;
