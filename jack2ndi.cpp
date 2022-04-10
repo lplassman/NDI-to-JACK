@@ -231,9 +231,11 @@ int main (int argc, char **argv){
      usage(stdout, argc, argv);
      exit(EXIT_SUCCESS);
     case 'n':
-     ndi_name = optarg;  
+     ndi_name = optarg;
+     break;  
     case 'j':
-     client_name = optarg;   
+     client_name = optarg; 
+     break;  
     case 'a':
      auto_connect_jack_ports = false;
      break;           
@@ -251,7 +253,11 @@ int main (int argc, char **argv){
 	// Create a NDI finder	
 	 printf("JACK Client Name %s\n", client_name);
    printf("NDI Sender Name %s\n", ndi_name);
-   printf("Auto Connect Ports %s\n", auto_connect_jack_ports);
+   if(auto_connect_jack_ports == true){
+    printf("Auto Connect Ports\n");
+   }else{
+    printf("No Auto Connect Ports\n"); 
+   }
    p_senders[0] = new send_audio(client_name,ndi_name,auto_connect_jack_ports);
                                
   /* keep running until the Ctrl+C */
