@@ -62,8 +62,8 @@ int receive_audio::process(jack_nframes_t nframes){
   for (int channel = 0; channel < num_channels; channel++){
    out[channel] = (jack_default_audio_sample_t*)jack_port_get_buffer (out_ports[channel], nframes);
   }
-  NDIlib_audio_frame_v2_t audio_frame;
-  NDIlib_framesync_capture_audio(m_pNDI_framesync, &audio_frame, jack_sample_rate, 2, nframes);
+  NDIlib_audio_frame_v3_t audio_frame;
+  NDIlib_framesync_capture_audio_v2(m_pNDI_framesync, &audio_frame, jack_sample_rate, num_channels, nframes);
   //printf("Audio data received (%d samples).\n", audio_frame.no_samples);
   //std::cout << "Number of audio frames (JACK): " << nframes << std::endl;
   //std::cout << "Audio Frame Data (NDI): " << audio_frame.p_data << std::endl;
@@ -77,7 +77,7 @@ int receive_audio::process(jack_nframes_t nframes){
    }
   }
   // Release the NDI audio frame. You could keep the frame if you want and release it later.
-  NDIlib_framesync_free_audio(m_pNDI_framesync, &audio_frame);
+  NDIlib_framesync_free_audio_v2(m_pNDI_framesync, &audio_frame);
   return 0;      
 }
 
