@@ -48,6 +48,7 @@ struct receive_audio {
 	NDIlib_recv_instance_t m_pNDI_recv; // Create the receiver
   NDIlib_framesync_instance_t m_pNDI_framesync; //NDI framesync
   jack_port_t **out_ports;
+  jack_default_audio_sample_t **out;
   jack_client_t *jack_client;
   jack_nframes_t jack_sample_rate;
   int num_channels = 2;
@@ -57,7 +58,6 @@ struct receive_audio {
 };
 
 int receive_audio::process(jack_nframes_t nframes){
-  jack_default_audio_sample_t **out;
   //Get JACK Audio Buffers
   for (int channel = 0; channel < num_channels; channel++){
    out[channel] = (jack_default_audio_sample_t*)jack_port_get_buffer (out_ports[channel], nframes);
@@ -90,8 +90,8 @@ void receive_audio::jack_shutdown(void *arg){
 }
 
 //Constructor
-receive_audio::receive_audio(const char* source, const char *client_name, bool auto_connect_ports): m_pNDI_recv(NULL), m_pNDI_framesync(NULL), m_exit(false), jack_client(NULL), out_ports(NULL){
-  //printf("Starting Receiver for %s\n", source);
+receive_audio::receive_audio(const char* source, const char *client_name, bool auto_connect_ports): m_pNDI_recv(NULL), m_pNDI_framesync(NULL), m_exit(false), jack_client(NULL){
+  printf("Starting Receiver for %s\n", source);
   const char **found_ports;
   const char *server_name = NULL;
   jack_options_t options = JackNullOption;
@@ -103,7 +103,9 @@ receive_audio::receive_audio(const char* source, const char *client_name, bool a
   recv_create_desc.p_ndi_recv_name = "NDI Receiver";
 
   /* open a client connection to the JACK server */
+  fprintf (stderr, "Opening connection to JACK server...\n");
   jack_client = jack_client_open (client_name, options, &status, server_name);
+  fprintf (stderr, "JACK server connection opened\n");
   if(jack_client == NULL){
    fprintf (stderr, "jack_client_open() failed, ""status = 0x%2.0x\n", status);
    if(status & JackServerFailed){
@@ -116,7 +118,7 @@ receive_audio::receive_audio(const char* source, const char *client_name, bool a
   }
   if(status & JackNameNotUnique){
    client_name = jack_get_client_name(jack_client);
-   //fprintf (stderr, "unique name `%s' assigned\n", client_name);
+   fprintf (stderr, "unique name `%s' assigned\n", client_name);
   }
 
   jack_sample_rate = jack_get_sample_rate(jack_client);
@@ -124,13 +126,25 @@ receive_audio::receive_audio(const char* source, const char *client_name, bool a
   jack_set_process_callback (jack_client, ::process_callback, this); //This callback is called on every every time JACK does work - every audio sample
   jack_on_shutdown (jack_client, receive_audio::jack_shutdown, 0); //JACK shutdown callback - gets called on JACK shutdown
   
+  //initialize data structures for variable channels
+  out_ports = (jack_port_t**)malloc(sizeof (jack_port_t*) * num_channels);
+  size_t out_size = num_channels * sizeof(jack_default_audio_sample_t*);
+  out = (jack_default_audio_sample_t**)malloc(out_size);
+
   /* create two output JACK ports */
-  for (int channel = 0; channel < num_channels; channel++){
-   out_ports[channel] = jack_port_register (jack_client, "output", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
-   if(out_ports[channel] == NULL){ //can't create JACK output ports
-    fprintf(stderr, "no more JACK ports available\n");
-    exit (1);
-   }
+  //for (int channel = 0; channel < num_channels; channel++){
+   fprintf (stderr, "Creating output ports...\n");
+   out_ports[0] = jack_port_register (jack_client, "output1", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+   out_ports[1] = jack_port_register (jack_client, "output2", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+   fprintf (stderr, "Output ports created...\n");
+   //if(out_ports[channel] == NULL){ //can't create JACK output ports
+    //fprintf(stderr, "no more JACK ports available\n");
+    //exit (1);
+   //}
+  //}
+  if((out_ports[0] == NULL) || (out_ports[1] == NULL)){ //can't create JACK output ports
+   fprintf(stderr, "no more JACK ports available\n");
+   exit (1);
   }
 
   /* Tell the JACK server that we are ready to roll.  Our
@@ -150,10 +164,12 @@ receive_audio::receive_audio(const char* source, const char *client_name, bool a
   if(auto_connect_ports == true){ //make sure auto connect is enabled
    found_ports = jack_get_ports (jack_client, NULL, NULL, JackPortIsPhysical|JackPortIsInput);
 
-   for (int channel = 0; channel < num_channels; channel++){
-    if(jack_connect (jack_client, jack_port_name (out_ports[channel]), found_ports[0])){
-     fprintf(stderr, "cannot connect output ports\n");
-    }
+   if(jack_connect (jack_client, jack_port_name (out_ports[0]), found_ports[0])){
+    fprintf(stderr, "cannot connect output ports\n");
+   }
+
+   if(jack_connect (jack_client, jack_port_name (out_ports[1]), found_ports[1])){
+    fprintf (stderr, "cannot connect output ports\n");
    }
 
    jack_free (found_ports);
