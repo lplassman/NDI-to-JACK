@@ -42,7 +42,7 @@ struct send_audio {
   int process(jack_nframes_t nframes);
  private:	
 	NDIlib_send_instance_t m_pNDI_send; //create the NDI sender
-  NDIlib_audio_frame_v2_t m_NDI_audio_frame; //create the audio frame for sending
+  NDIlib_audio_frame_v3_t m_NDI_audio_frame; //create the audio frame for sending
   jack_port_t *in_port1, *in_port2;
   jack_client_t *jack_client;
   jack_nframes_t jack_sample_rate;
