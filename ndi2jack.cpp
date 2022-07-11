@@ -131,17 +131,16 @@ receive_audio::receive_audio(const char* source, const char *client_name, bool a
   size_t out_size = num_channels * sizeof(jack_default_audio_sample_t*);
   out = (jack_default_audio_sample_t**)malloc(out_size);
 
-  /* create two output JACK ports */
-  //for (int channel = 0; channel < num_channels; channel++){
+  /* create output JACK ports */
+  for (int channel = 0; channel < num_channels; channel++){
    fprintf (stderr, "Creating output ports...\n");
-   out_ports[0] = jack_port_register (jack_client, "output1", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
-   out_ports[1] = jack_port_register (jack_client, "output2", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+   out_ports[channel] = jack_port_register (jack_client, "output", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
    fprintf (stderr, "Output ports created...\n");
-   //if(out_ports[channel] == NULL){ //can't create JACK output ports
-    //fprintf(stderr, "no more JACK ports available\n");
-    //exit (1);
-   //}
-  //}
+   if(out_ports[channel] == NULL){ //can't create JACK output ports
+    fprintf(stderr, "no more JACK ports available\n");
+    exit (1);
+   }
+  }
   if((out_ports[0] == NULL) || (out_ports[1] == NULL)){ //can't create JACK output ports
    fprintf(stderr, "no more JACK ports available\n");
    exit (1);
