@@ -133,8 +133,11 @@ receive_audio::receive_audio(const char* source, const char *client_name, bool a
 
   /* create output JACK ports */
   for (int channel = 0; channel < num_channels; channel++){
+   std::string channel_name_string;
+   channel_name_string = "output" + channel;
+   const char* channel_name_char = channel_name_string.c_str();
    fprintf (stderr, "Creating output ports...\n");
-   out_ports[channel] = jack_port_register (jack_client, "output", JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
+   out_ports[channel] = jack_port_register (jack_client, channel_name_char, JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
    fprintf (stderr, "Output ports created...\n");
    if(out_ports[channel] == NULL){ //can't create JACK output ports
     fprintf(stderr, "no more JACK ports available\n");
