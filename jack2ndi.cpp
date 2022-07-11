@@ -75,7 +75,7 @@ int send_audio::process(jack_nframes_t nframes){
    memcpy(p_ch2, in2, sizeof(jack_default_audio_sample_t) * nframes); //copy the audio frame from JACK buffer to the NDI frame
   }
   // Send the NDI audio frame
-  NDIlib_send_send_audio_v2(m_pNDI_send, &m_NDI_audio_frame);
+  NDIlib_send_send_audio_v3(m_pNDI_send, &m_NDI_audio_frame);
   free(m_NDI_audio_frame.p_data); //free the audio frame
   return 0;      
 }
