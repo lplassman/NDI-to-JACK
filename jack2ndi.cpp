@@ -17,10 +17,12 @@
 #include <atomic>
 #include <unistd.h>
 #include <fstream> //for reading and writing preset file
+#include <condition_variable>
+#include <mutex>
+#include <queue>
 #include <thread>
 
-#include <getopt.h> 
-#include <condition_variable>
+#include <getopt.h>
 
 #include <Processing.NDI.Lib.h>
 #include <jack/jack.h>
@@ -40,6 +42,10 @@ struct send_audio {
  ~send_audio(void); //destructor 
  public:
   int process(jack_nframes_t nframes);
+  void queue_wait(void);
+  void process_audio_thread(void);
+  void queue_push(jack_default_audio_sample_t** frame);
+  jack_default_audio_sample_t** queue_pop_opt(void);
  private:	
 	NDIlib_send_instance_t m_pNDI_send; //create the NDI sender
   NDIlib_audio_frame_v2_t m_NDI_audio_frame; //create the audio frame for sending
@@ -48,30 +54,83 @@ struct send_audio {
   jack_client_t *jack_client;
   jack_nframes_t jack_sample_rate;
   int num_channels = 2;
+  jack_nframes_t num_frames;
+  std::thread audio_thread;
+  std::size_t m_max_depth = 1;    // How many items we will queue before dropping them
+  std::mutex m_lock;
+  std::condition_variable m_condvar;
+  std::queue<jack_default_audio_sample_t**> m_queue;
 	std::atomic<bool> m_exit;	// Are we ready to exit		
   static void jack_shutdown(void *arg); //This is called when JACK is shutdown
 };
+
+void send_audio::queue_wait(void){
+  std::unique_lock<std::mutex> lock_queue(m_lock); //lock the queue
+  while (m_queue.empty()){ //wait until there is a new frame
+    m_condvar.wait(lock_queue);
+  }
+}
+
+void send_audio::queue_push(jack_default_audio_sample_t** frame){
+  std::unique_lock<std::mutex> lock_queue(m_lock); //Lock the queue
+  m_queue.push(std::move(frame)); // Queue the frame
+
+  // Drop items that are too old if the queue is not keeping up
+  while ((m_max_depth) && (m_queue.size() > m_max_depth)){
+    m_queue.pop(); //drop an audio frame from the queue
+    printf("!"); fflush(stdout);
+  }
+  lock_queue.unlock(); //unlock the queue
+  m_condvar.notify_one(); //notify the listener that there is data
+}
+
+jack_default_audio_sample_t** send_audio::queue_pop_opt(void){
+ // Lock the queue
+ std::unique_lock<std::mutex> lock_queue(m_lock); 
+ if(m_queue.empty()) {
+  return {};
+ }
+ //Get the item from the queue
+ jack_default_audio_sample_t** item = std::move(m_queue.front());
+ m_queue.pop();
+ lock_queue.unlock(); //unlock the queue
+ return item;
+}
 
 int send_audio::process(jack_nframes_t nframes){
   //Get JACK Audio Buffers
   for (int channel = 0; channel < num_channels; channel++){
    in[channel] = (jack_default_audio_sample_t*)jack_port_get_buffer (in_ports[channel], nframes);
   }  
-  m_NDI_audio_frame.no_samples = nframes;
+  send_audio::queue_push(std::move(in));
+  num_frames = nframes;
+  return 0;      
+}
 
-  m_NDI_audio_frame.p_data = (float*)malloc(nframes * num_channels * sizeof(float));
-	m_NDI_audio_frame.channel_stride_in_bytes = nframes * sizeof(float);
+void send_audio::process_audio_thread(void){
+  bool exit_thread = false;
+  while (true){
+    queue_wait(); //wait until there is some data to process
+    while (true){
+     auto frame = queue_pop_opt(); //get the data frame off of the queue
+     if(!frame){ //no data - wait for more data at queue_wait()
+      break; 
+     } 
+     m_NDI_audio_frame.no_samples = num_frames;
+     m_NDI_audio_frame.p_data = (float*)malloc(num_frames * num_channels * sizeof(float));
+	   m_NDI_audio_frame.channel_stride_in_bytes = num_frames * sizeof(float);
 
-  if(m_NDI_audio_frame.p_data != 0){ //make sure that there is data in the buffer before trying to copy anything
-   for (int channel = 0; channel < num_channels; channel++){
-    float* p_ch = (float*)((uint8_t*)m_NDI_audio_frame.p_data + channel*m_NDI_audio_frame.channel_stride_in_bytes); //Initialize channels in NDI frame
-    memcpy(p_ch, in[channel], sizeof(jack_default_audio_sample_t) * nframes); //copy the audio frame from JACK buffer to the NDI frame
+    if(m_NDI_audio_frame.p_data != 0){ //make sure that there is data in the buffer before trying to copy anything
+     for (int channel = 0; channel < num_channels; channel++){
+      float* p_ch = (float*)((uint8_t*)m_NDI_audio_frame.p_data + channel*m_NDI_audio_frame.channel_stride_in_bytes); //Initialize channels in NDI frame
+      memcpy(p_ch, frame[channel], sizeof(jack_default_audio_sample_t) * num_frames); //copy the audio frame from JACK buffer to the NDI frame
+     }
+    }
+    // Send the NDI audio frame
+    NDIlib_send_send_audio_v2(m_pNDI_send, &m_NDI_audio_frame);
+    free(m_NDI_audio_frame.p_data); //free the audio frame
    }
   }
-  // Send the NDI audio frame
-  NDIlib_send_send_audio_v2(m_pNDI_send, &m_NDI_audio_frame);
-  free(m_NDI_audio_frame.p_data); //free the audio frame
-  return 0;      
 }
 
 /**
@@ -174,14 +233,15 @@ send_audio::send_audio(const char *c_name, const char *n_name, bool a_ports): m_
 
   m_NDI_audio_frame.sample_rate = jack_sample_rate;
 	m_NDI_audio_frame.no_channels = num_channels;
+  audio_thread = std::thread(&send_audio::process_audio_thread, this); //start the audio processing in its own thread
 }
 
 // Destructor
 send_audio::~send_audio(void){	// Wait for the thread to exit
 	m_exit = true;
 	jack_client_close(jack_client);
-	// Destroy the receiver
-  
+	// Destroy the sender thread
+  audio_thread.join();
 }
 
 /**
