@@ -47,6 +47,7 @@ struct receive_audio {
  private:	
 	NDIlib_recv_instance_t m_pNDI_recv; // Create the receiver
   NDIlib_framesync_instance_t m_pNDI_framesync; //NDI framesync
+  NDIlib_audio_frame_v3_t audio_frame;
   jack_port_t **out_ports;
   jack_default_audio_sample_t **out;
   jack_client_t *jack_client;
@@ -62,7 +63,6 @@ int receive_audio::process(jack_nframes_t nframes){
   for (int channel = 0; channel < num_channels; channel++){
    out[channel] = (jack_default_audio_sample_t*)jack_port_get_buffer (out_ports[channel], nframes);
   }
-  NDIlib_audio_frame_v3_t audio_frame;
   NDIlib_framesync_capture_audio_v2(m_pNDI_framesync, &audio_frame, jack_sample_rate, num_channels, nframes);
   //printf("Audio data received (%d samples).\n", audio_frame.no_samples);
   //std::cout << "Number of audio frames (JACK): " << nframes << std::endl;
@@ -72,7 +72,7 @@ int receive_audio::process(jack_nframes_t nframes){
   //std::cout << "Number of Audio Channels (NDI): " << sizeof(audio_frame.no_channels) << std::endl;
   if(audio_frame.p_data != 0){ //make sure that there is data in the buffer before trying to copy anything
    for (int channel = 0; channel < num_channels; channel++){
-    float* p_ch = (float*)((uint8_t*)audio_frame.p_data + channel*audio_frame.channel_stride_in_bytes); //Get Channel 1 from NDI audio frame
+    float* p_ch = (float*)((uint8_t*)audio_frame.p_data + channel*audio_frame.channel_stride_in_bytes); //Get channels from NDI audio frame
     memcpy(out[channel], p_ch, sizeof(jack_default_audio_sample_t) * nframes); //copy the audio frame from NDI to the JACK buffer
    }
   }
@@ -133,20 +133,16 @@ receive_audio::receive_audio(const char* source, const char *client_name, bool a
 
   /* create output JACK ports */
   for (int channel = 0; channel < num_channels; channel++){
-   std::string channel_name_string;
-   channel_name_string = "output" + channel;
+   std::string channel_name_string = "output" + std::to_string(channel);
+   //std::cout << "Current Channel Name: " << channel_name_string << std::endl;
    const char* channel_name_char = channel_name_string.c_str();
-   fprintf (stderr, "Creating output ports...\n");
+   printf("Creating JACK output port: %s, Channel: %d\n", channel_name_char, channel);
    out_ports[channel] = jack_port_register (jack_client, channel_name_char, JACK_DEFAULT_AUDIO_TYPE, JackPortIsOutput, 0);
-   fprintf (stderr, "Output ports created...\n");
-   if(out_ports[channel] == NULL){ //can't create JACK output ports
+   printf("Output JACK port created for %s\n", channel_name_char);
+   if(out_ports[channel] == NULL){ //can't create JACK output ports - error
     fprintf(stderr, "no more JACK ports available\n");
     exit (1);
    }
-  }
-  if((out_ports[0] == NULL) || (out_ports[1] == NULL)){ //can't create JACK output ports
-   fprintf(stderr, "no more JACK ports available\n");
-   exit (1);
   }
 
   /* Tell the JACK server that we are ready to roll.  Our
