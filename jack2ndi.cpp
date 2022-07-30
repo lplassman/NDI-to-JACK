@@ -1,5 +1,5 @@
 /*
- * NDI Client to JACK (Jack Audio Connection Kit) Output
+ * JACK to NDI Output
  * 
  * This program can be used and distrubuted without resrictions
  */
@@ -43,36 +43,30 @@ struct send_audio {
  private:	
 	NDIlib_send_instance_t m_pNDI_send; //create the NDI sender
   NDIlib_audio_frame_v2_t m_NDI_audio_frame; //create the audio frame for sending
-  jack_port_t *in_port1, *in_port2;
+  jack_port_t **in_ports;
+  jack_default_audio_sample_t **in;
   jack_client_t *jack_client;
   jack_nframes_t jack_sample_rate;
+  int num_channels = 2;
 	std::atomic<bool> m_exit;	// Are we ready to exit		
   static void jack_shutdown(void *arg); //This is called when JACK is shutdown
 };
 
 int send_audio::process(jack_nframes_t nframes){
-  jack_default_audio_sample_t *in1, *in2;
   //Get JACK Audio Buffers
-  in1 = (jack_default_audio_sample_t*)jack_port_get_buffer (in_port1, nframes);
-  in2 = (jack_default_audio_sample_t*)jack_port_get_buffer (in_port2, nframes);
-
+  for (int channel = 0; channel < num_channels; channel++){
+   in[channel] = (jack_default_audio_sample_t*)jack_port_get_buffer (in_ports[channel], nframes);
+  }  
   m_NDI_audio_frame.no_samples = nframes;
 
-  m_NDI_audio_frame.p_data = (float*)malloc(nframes * 2 * sizeof(float));
+  m_NDI_audio_frame.p_data = (float*)malloc(nframes * num_channels * sizeof(float));
 	m_NDI_audio_frame.channel_stride_in_bytes = nframes * sizeof(float);
-  //NDIlib_audio_frame_v2_t audio_frame;
-  //NDIlib_framesync_capture_audio(m_pNDI_framesync, &audio_frame, jack_sample_rate, 2, nframes);
-  //printf("Audio data received (%d samples).\n", audio_frame.no_samples);
-  //std::cout << "Number of audio frames (JACK): " << nframes << std::endl;
-  //std::cout << "Audio Frame Data (NDI): " << audio_frame.p_data << std::endl;
-  //std::cout << "Channel Stride in Bytes (NDI): " << audio_frame.channel_stride_in_bytes << std::endl;
-  //std::cout << "Size of Audio Frame (NDI): " << sizeof(audio_frame.p_data) << std::endl;
-  //std::cout << "Number of Audio Channels (NDI): " << sizeof(audio_frame.no_channels) << std::endl;
+
   if(m_NDI_audio_frame.p_data != 0){ //make sure that there is data in the buffer before trying to copy anything
-   float* p_ch1 = (float*)((uint8_t*)m_NDI_audio_frame.p_data + 0*m_NDI_audio_frame.channel_stride_in_bytes); //Get Channel 1 pointer from NDI audio frame
-   float* p_ch2 = (float*)((uint8_t*)m_NDI_audio_frame.p_data + 1*m_NDI_audio_frame.channel_stride_in_bytes); //Get Channel 2 pointer from NDI audio frame
-   memcpy(p_ch1, in1, sizeof(jack_default_audio_sample_t) * nframes); //copy the audio frame from JACK buffer to the NDI frame
-   memcpy(p_ch2, in2, sizeof(jack_default_audio_sample_t) * nframes); //copy the audio frame from JACK buffer to the NDI frame
+   for (int channel = 0; channel < num_channels; channel++){
+    float* p_ch = (float*)((uint8_t*)m_NDI_audio_frame.p_data + channel*m_NDI_audio_frame.channel_stride_in_bytes); //Initialize channels in NDI frame
+    memcpy(p_ch, in[channel], sizeof(jack_default_audio_sample_t) * nframes); //copy the audio frame from JACK buffer to the NDI frame
+   }
   }
   // Send the NDI audio frame
   NDIlib_send_send_audio_v2(m_pNDI_send, &m_NDI_audio_frame);
@@ -89,7 +83,7 @@ void send_audio::jack_shutdown(void *arg){
 }
 
 //Constructor
-send_audio::send_audio(const char *c_name, const char *n_name, bool a_ports): m_pNDI_send(NULL), m_exit(false), jack_client(NULL), in_port1(NULL), in_port2(NULL){
+send_audio::send_audio(const char *c_name, const char *n_name, bool a_ports): m_pNDI_send(NULL), m_exit(false), jack_client(NULL){
   printf("Starting Sender for %s\n", n_name);
   printf("Connecting to JACK as %s\n", c_name);
   const char **ports;
@@ -126,14 +120,24 @@ send_audio::send_audio(const char *c_name, const char *n_name, bool a_ports): m_
   
   jack_set_process_callback (jack_client, ::process_callback, this); //This callback is called on every every time JACK does work - every audio sample
   jack_on_shutdown (jack_client, send_audio::jack_shutdown, 0); //JACK shutdown callback - gets called on JACK shutdown
-  
-  /* create two input JACK ports */
-  in_port1 = jack_port_register (jack_client, "input1", JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
-  in_port2 = jack_port_register (jack_client, "input2", JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
-  
-  if((in_port1 == NULL) || (in_port2 == NULL)){ //can't create JACK input ports
-   fprintf(stderr, "no more JACK ports available\n");
-   exit (1);
+
+  //initialize data structures for variable channels
+  in_ports = (jack_port_t**)malloc(sizeof (jack_port_t*) * num_channels);
+  size_t in_size = num_channels * sizeof(jack_default_audio_sample_t*);
+  in = (jack_default_audio_sample_t**)malloc(in_size);
+
+  /* create input JACK ports */
+  for (int channel = 0; channel < num_channels; channel++){
+   std::string channel_name_string = "input" + std::to_string(channel);
+   //std::cout << "Current Channel Name: " << channel_name_string << std::endl;
+   const char* channel_name_char = channel_name_string.c_str();
+   printf("Creating JACK input port: %s, Channel: %d\n", channel_name_char, channel);
+   in_ports[channel] = jack_port_register (jack_client, channel_name_char, JACK_DEFAULT_AUDIO_TYPE, JackPortIsInput, 0);
+   printf("Input JACK port created for %s\n", channel_name_char);
+   if(in_ports[channel] == NULL){ //can't create JACK output ports - error
+    fprintf(stderr, "no more JACK ports available\n");
+    exit (1);
+   }
   }
 
   /* Tell the JACK server that we are ready to roll.  Our
@@ -157,11 +161,11 @@ send_audio::send_audio(const char *c_name, const char *n_name, bool a_ports): m_
     exit (1);
    }
 
-   if(jack_connect (jack_client, ports[0], jack_port_name (in_port1))){
+   if(jack_connect (jack_client, ports[0], jack_port_name (in_ports[0]))){
     fprintf(stderr, "cannot connect input ports\n");
    }
 
-   if(jack_connect (jack_client, ports[1], jack_port_name (in_port2))){
+   if(jack_connect (jack_client, ports[1], jack_port_name (in_ports[1]))){
     fprintf (stderr, "cannot connect input ports\n");
    }
 
@@ -169,7 +173,7 @@ send_audio::send_audio(const char *c_name, const char *n_name, bool a_ports): m_
   }
 
   m_NDI_audio_frame.sample_rate = jack_sample_rate;
-	m_NDI_audio_frame.no_channels = 2;
+	m_NDI_audio_frame.no_channels = num_channels;
 }
 
 // Destructor
