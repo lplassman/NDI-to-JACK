@@ -129,7 +129,7 @@ sudo systemctl start jack2ndi.service
 
 ```
 sudo service jackd stop
-sudo rm -v NDI-to-JACK
+sudo rm -R NDI-to-JACK
 git clone https://github.com/windows10luke/NDI-to-JACK.git && cd NDI-to-JACK
 ```
 Run the easy install for the CPU type it is running on (e.g. `sudo bash ./easy-install-rpi4-aarch64.sh`). Reboot when finished
