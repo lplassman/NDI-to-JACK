@@ -125,6 +125,15 @@ sudo systemctl enable jack2ndi.service
 sudo systemctl start jack2ndi.service
 ```
 
+## To upgrade, run the following commands
+
+```
+sudo service jackd stop
+sudo rm -v NDI-to-JACK
+git clone https://github.com/windows10luke/NDI-to-JACK.git && cd NDI-to-JACK
+```
+Run the easy install for the CPU type it is running on (e.g. `sudo bash ./easy-install-rpi4-aarch64.sh`). Reboot when finished
+
 ## Helpful links
 
 https://wiki.linuxaudio.org/wiki/list_of_jack_frame_period_settings_ideal_for_usb_interface
