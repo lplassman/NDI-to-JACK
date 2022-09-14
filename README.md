@@ -80,6 +80,18 @@ sudo bash ./easy-install-generic-aarch64.sh
 ```
 Installation is now complete!
 
+### Install on generic ARM32
+
+Compiling on generic ARM32 requires use of the NDI Advanced SDK. Due to licensing restrictions, the NDI Advanced SDK must be downloaded manually from NDI's website: ndi.tv
+Extract the downloaded NDI Advanced SDK .tar file and copy it to the NDI-to-JACK directory on the target device. This can be achieved by using FTP, SCP, or Samba.
+
+Compile and install
+
+```
+sudo bash ./easy-install-generic-armhf.sh
+```
+Installation is now complete!
+
 
 ## Usage for NDI to JACK converter
 
