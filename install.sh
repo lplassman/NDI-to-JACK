@@ -5,6 +5,9 @@ BIN_DIR="$INSTALL_DIR/bin"
 ASSETS_DIR="$INSTALL_DIR/assets"
 LIB_DIR="/usr/lib"
 
+rm -R "$INSTALL_DIR"
+rm -R "$LIB_DIR/libndi*"
+
 if [ ! -d "$INSTALL_DIR" ]; then
   mkdir "$INSTALL_DIR"
 fi
