@@ -32,6 +32,7 @@ NDIlib_find_instance_t pNDI_find;
 const NDIlib_source_t* p_sources = NULL;
 struct mg_mgr mgr;   
 bool auto_connect_jack_ports = true;
+float main_volume = 0.5f; //set to half volume by default
 
 //Function Definitions
 int process_callback(jack_nframes_t x, void *p);
@@ -52,7 +53,8 @@ struct receive_audio {
   jack_default_audio_sample_t **out;
   jack_client_t *jack_client;
   jack_nframes_t jack_sample_rate;
-  int num_channels = 2;
+  float channel_volume = 1.0f; //set channel volume to full
+  int num_channels = 2; //default number of channels
 	std::atomic<bool> m_exit;	// Are we ready to exit
   void receive(void); // This is called to receive frames		
   static void jack_shutdown(void *arg); //This is called when JACK is shutdown
@@ -73,6 +75,9 @@ int receive_audio::process(jack_nframes_t nframes){
   if(audio_frame.p_data != 0){ //make sure that there is data in the buffer before trying to copy anything
    for (int channel = 0; channel < num_channels; channel++){
     float* p_ch = (float*)((uint8_t*)audio_frame.p_data + channel*audio_frame.channel_stride_in_bytes); //Get channels from NDI audio frame
+    for (int sample_no = 0; sample_no < audio_frame.no_samples; sample_no++){ //apply the volume to each sample
+		 p_ch[sample_no] = p_ch[sample_no] * main_volume * channel_volume;
+    }
     memcpy(out[channel], p_ch, sizeof(jack_default_audio_sample_t) * nframes); //copy the audio frame from NDI to the JACK buffer
    }
   }
@@ -200,7 +205,7 @@ int process_callback(jack_nframes_t x, void *p){
 
 static const int no_receivers = 30; //max number of receivers
 receive_audio* p_receivers[no_receivers] = { 0 };
-std::string ndi_running_name[no_receivers] = { "" };
+std::string ndi_running_name[no_receivers] = { "" }; //name of the connected NDI stream
 
 static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data){
   if(ev == MG_EV_WS_OPEN){
@@ -227,6 +232,8 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data){
     mjson_get_string(wm->data.ptr, wm->data.len, "$.action", action_buf, sizeof(action_buf)); //get action
     std::string prefix_string = convertToString(prefix_buf);
     std::string action_string = convertToString(action_buf);
+    //std::cout << "prefixString: " << prefix_string << std::endl;
+    //std::cout << "actionString: " << action_string << std::endl;
     if(prefix_string == "refresh"){
      if(action_string == "refresh"){
 
@@ -286,6 +293,25 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data){
         mg_ws_send(c2, pub_json2, strlen(pub_json2), WEBSOCKET_OP_TEXT);
        }
       }
+     }
+     if(action_string == "re_vol"){
+      std::string volume_json;
+      std::string source_json = "";
+      volume_json = "{\"prefix\":\"update_volume\",\"action\":\"display\",\"volume_info\":{";
+      std::string volume_level = std::to_string(main_volume);
+      if(source_json == ""){
+       source_json += "\"main_vol\":\""+volume_level+"\"";
+      }
+      
+      volume_json += source_json;
+      volume_json += "}";
+      volume_json += "}";
+      const char* pub_json3 = volume_json.c_str();
+      for (struct mg_connection *c2 = mgr.conns; c2 != NULL; c2 = c2->next) { //traverse over all client connections
+       if (c2->label[0] == 'W'){ //make sure it is a websocket connection
+        mg_ws_send(c2, pub_json3, strlen(pub_json3), WEBSOCKET_OP_TEXT);
+       }
+      }
      } 
     }
 
@@ -317,13 +343,13 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data){
      }
     }
 
-    if(prefix_string == "disconnect_source"){
+    if(prefix_string == "disconnect_source"){ //remove a connected source
      int source_id = std::stoi(action_string);
      delete p_receivers[source_id]; //delete receiver
      ndi_running_name[source_id] = ""; //update the running receiver
     }
 
-    if(prefix_string == "save_streams"){
+    if(prefix_string == "save_streams"){ //save the current connected streams
      std::ofstream preset_file("/opt/ndi2jack/assets/presets.txt");
      for(uint32_t i = 0; i < no_receivers; i++){
       if(ndi_running_name[i] != ""){ //make sure a receiver is stored before trying to save in file
@@ -332,6 +358,10 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data){
       }
      }
      preset_file.close();
+    }
+
+    if(prefix_string == "am"){ //adjust the main volume - all output channels are adjusted
+     main_volume = std::stof(action_string); //get the float volume from the websocket and set the main_volume variable
     }
     
   }

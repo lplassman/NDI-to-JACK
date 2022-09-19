@@ -14,6 +14,7 @@
    <div class="navbarTopBrand">NDI Sources</div>
   </div>
   <div class="rightContainer">
+    <input id="main_vol" type="range" min="0" max="1" step="0.01" value="0" oninput="adjust_main_volume(event)"></input>;
     <div id="save" class="header-link" onclick="save_streams()">Save</div>
     <div id="edit" class="header-link" onclick="refresh_sources()">Refresh</div>
   </div>
@@ -55,7 +56,9 @@
     console.log('Connection opened');
     var render_object = {prefix: "refresh", action: "refresh"};
     var render_json = JSON.stringify(render_object);
-    console.log(render_json);
+    websocket.send(render_json);
+    var render_object = {prefix: "refresh", action: "re_vol"}; //get current volume levels
+    var render_json = JSON.stringify(render_object);
     websocket.send(render_json);
     setInterval(refresh_sources, 3000); //update sources every 3 seconds
   }
@@ -65,20 +68,17 @@
   }
 
   function onMessage(event) {
-    console.log(event.data); 
     var json_object = JSON.parse(event.data);
-    console.log(json_object);
+    //console.log(json_object);
     var prefix = json_object.prefix;
     var action = json_object.action;
     if((prefix == "discover_source")&&(action == "display")){
      var source_list = json_object.source_list; //get NDI source list
      var source_html = "";
      for(id in source_list){
-      console.log(source_list[id]);
       var source_name = source_list[id].name;
       var source_url = source_list[id].url;
       source_html += "<div class='d-box'><h2 class='header'>" + source_name + "</h2><h4 class='header'>" + source_url + "</h4><div class='d-box-container'><button class='button-primary' onclick='connect_source(\""+id+"\")''>Connect</button></div></div>";
-      console.log(source_html);
      }
      if(source_html != ""){
       document.getElementById("sourceContainer").innerHTML = source_html; 
@@ -90,16 +90,22 @@
      var source_list = json_object.source_list; //get NDI source list
      var source_html = "";
      for(id in source_list){
-      console.log(source_list[id]);
       var source_name = source_list[id].name;
       source_html += "<div class='d-box'><h2 class='header'>" + source_name + "</h2><div class='d-box-container'><button class='button-primary' onclick='disconnect_source(\""+id+"\")''>Disconnect</button></div></div>";
-      console.log(source_html);
      }
      if(source_html != ""){
       document.getElementById("playingContainer").innerHTML = source_html; 
      }else{
       document.getElementById("playingContainer").innerHTML = "<div class='d-box'><h2 class='header'>Not playing any sources</h2></div>";
      }
+    }
+    if((prefix == "update_volume")&&(action == "display")){
+      console.log(json_object);
+      let volume_info = json_object.volume_info; //get the volume info
+      for(id in volume_info){
+       let volume_level = volume_info[id]; 
+       document.getElementById(id).value = volume_level; //adjust the volume level indicator based on the level id
+      }
     }
   }
   function onLoad(event) {
@@ -132,6 +138,16 @@
 
   function save_streams(){
     var render_object = {prefix: "save_streams", action: "save"};
+    var render_json = JSON.stringify(render_object);
+    websocket.send(render_json);
+  }
+
+  function adjust_main_volume(event){
+    let volume = event.target.value;
+    var render_object = {prefix: "am", action: volume};
+    var render_json = JSON.stringify(render_object);
+    websocket.send(render_json);
+    var render_object = {prefix: "refresh", action: "re_vol"}; //get current volume levels
     var render_json = JSON.stringify(render_object);
     websocket.send(render_json);
   }
