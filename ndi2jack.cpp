@@ -170,13 +170,11 @@ receive_audio::receive_audio(const char* source, const char *client_name, int ch
    */
   //if(auto_connect_ports == true){ //make sure auto connect is enabled
    found_ports = jack_get_ports (jack_client, NULL, NULL, JackPortIsInput);
-   int num_ports = sizeof(found_ports)/sizeof(found_ports[0]);
-   printf("Number of JACK Inputs: %d\n", num_ports);
-   printf("Number of JACK Inputs: %d\n", sizeof(found_ports[0]));
-   printf("Jack Port 1: %s\n", found_ports[0]);
-   printf("Jack Port 2: %s\n", found_ports[1]);
-   printf("Jack Port 3: %s\n", found_ports[2]);
-   printf("Jack Port 4: %s\n", found_ports[3]);
+   if (found_ports) {
+		for (i = 0; found_ports[i]; ++i) {
+			printf("name: %s\n", found_ports[i]);
+		}
+   }
 
    if(jack_connect (jack_client, jack_port_name (out_ports[0]), found_ports[0])){
     fprintf(stderr, "cannot connect output ports\n");
