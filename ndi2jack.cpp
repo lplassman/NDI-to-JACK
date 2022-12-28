@@ -171,6 +171,7 @@ receive_audio::receive_audio(const char* source, const char *client_name, int ch
   //if(auto_connect_ports == true){ //make sure auto connect is enabled
    found_ports = jack_get_ports (jack_client, NULL, NULL, JackPortIsInput);
    if (found_ports) {
+    int i;
 		for (i = 0; found_ports[i]; ++i) {
 			printf("name: %s\n", found_ports[i]);
 		}
