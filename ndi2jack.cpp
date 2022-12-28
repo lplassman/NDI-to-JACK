@@ -20,6 +20,7 @@
 #include <mongoose.h>
 #include "mjson.h"
 #include <thread>
+#include <chrono>
 
 #include <getopt.h> 
 #include <condition_variable>
@@ -29,6 +30,8 @@
 
 NDIlib_find_create_t NDI_find_create_desc; /* Default settings for NDI find */
 NDIlib_find_instance_t pNDI_find;
+NDIlib_recv_instance_t pNDI_recv; //receiver for finding stream info
+int stream_info[3]; //stream info for the NDI stream
 const NDIlib_source_t* p_sources = NULL;
 struct mg_mgr mgr;   
 bool auto_connect_jack_ports = true;
@@ -37,11 +40,12 @@ float main_volume = 0.5f; //set to half volume by default
 //Function Definitions
 int process_callback(jack_nframes_t x, void *p);
 std::string convertToString(char* a);
+bool get_ndi_info(const char* source);
 
 
 
 struct receive_audio {
- receive_audio(const char* source, const char *client_name="NDI_recv", bool auto_connect_ports=true); //constructor
+ receive_audio(const char* source, const char *client_name="NDI_recv", int channel_count = 2); //constructor
  ~receive_audio(void); //destructor 
  public:
   int process(jack_nframes_t nframes);
@@ -55,8 +59,7 @@ struct receive_audio {
   jack_nframes_t jack_sample_rate;
   float channel_volume = 1.0f; //set channel volume to full
   int num_channels = 2; //default number of channels
-	std::atomic<bool> m_exit;	// Are we ready to exit
-  void receive(void); // This is called to receive frames		
+	std::atomic<bool> m_exit;	// Are we ready to exit	
   static void jack_shutdown(void *arg); //This is called when JACK is shutdown
 };
 
@@ -95,7 +98,7 @@ void receive_audio::jack_shutdown(void *arg){
 }
 
 //Constructor
-receive_audio::receive_audio(const char* source, const char *client_name, bool auto_connect_ports): m_pNDI_recv(NULL), m_pNDI_framesync(NULL), m_exit(false), jack_client(NULL){
+receive_audio::receive_audio(const char* source, const char *client_name, int channel_count): m_pNDI_recv(NULL), m_pNDI_framesync(NULL), m_exit(false), jack_client(NULL){
   printf("Starting Receiver for %s\n", source);
   const char **found_ports;
   const char *server_name = NULL;
@@ -106,6 +109,7 @@ receive_audio::receive_audio(const char* source, const char *client_name, bool a
   recv_create_desc.source_to_connect_to = source;
   recv_create_desc.bandwidth = NDIlib_recv_bandwidth_audio_only; //specify receiving audio frames only
   recv_create_desc.p_ndi_recv_name = "NDI Receiver";
+  num_channels = channel_count;
 
   /* open a client connection to the JACK server */
   fprintf (stderr, "Opening connection to JACK server...\n");
@@ -138,7 +142,7 @@ receive_audio::receive_audio(const char* source, const char *client_name, bool a
 
   /* create output JACK ports */
   for (int channel = 0; channel < num_channels; channel++){
-   std::string channel_name_string = "output" + std::to_string(channel);
+   std::string channel_name_string = "output_" + std::to_string(channel);
    //std::cout << "Current Channel Name: " << channel_name_string << std::endl;
    const char* channel_name_char = channel_name_string.c_str();
    printf("Creating JACK output port: %s, Channel: %d\n", channel_name_char, channel);
@@ -164,8 +168,15 @@ receive_audio::receive_audio(const char* source, const char *client_name, bool a
    * "input" to the backend, and capture ports are "output" from
    * it.
    */
-  if(auto_connect_ports == true){ //make sure auto connect is enabled
-   found_ports = jack_get_ports (jack_client, NULL, NULL, JackPortIsPhysical|JackPortIsInput);
+  //if(auto_connect_ports == true){ //make sure auto connect is enabled
+   found_ports = jack_get_ports (jack_client, NULL, NULL, JackPortIsInput);
+   int num_ports = sizeof(found_ports)/sizeof(found_ports[0]);
+   printf("Number of JACK Inputs: %d\n", num_ports);
+   printf("Number of JACK Inputs: %d\n", sizeof(found_ports[0]));
+   printf("Jack Port 1: %s\n", found_ports[0]);
+   printf("Jack Port 2: %s\n", found_ports[1]);
+   printf("Jack Port 3: %s\n", found_ports[2]);
+   printf("Jack Port 4: %s\n", found_ports[3]);
 
    if(jack_connect (jack_client, jack_port_name (out_ports[0]), found_ports[0])){
     fprintf(stderr, "cannot connect output ports\n");
@@ -176,13 +187,13 @@ receive_audio::receive_audio(const char* source, const char *client_name, bool a
    }
 
    jack_free (found_ports);
-  }
+  //}
 
   // Create the receiver
 	m_pNDI_recv = NDIlib_recv_create_v3(&recv_create_desc);
 	assert(m_pNDI_recv);
 
-  // Use a frame-syncronizer to ensure that the audio is dynamically resampled
+  // Use a frame-synchronizer to ensure that the audio is dynamically resampled
   m_pNDI_framesync = NDIlib_framesync_create(m_pNDI_recv); //starts in its own thread
 }
 
@@ -337,7 +348,8 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data){
         } 
        }
       }
-      p_receivers[receiver_id] = new receive_audio(p_sources[source_id].p_ndi_name, "NDI_recv", auto_connect_jack_ports); 
+      get_ndi_info(p_sources[source_id].p_ndi_name);
+      p_receivers[receiver_id] = new receive_audio(p_sources[source_id].p_ndi_name, "NDI_recv", stream_info[2]); 
      }else{
       //std::cout << "Receiver already running for:  " << p_sources[source_id].p_ndi_name << std::endl; 
      }
@@ -365,6 +377,49 @@ static void fn(struct mg_connection *c, int ev, void *ev_data, void *fn_data){
     }
     
   }
+}
+
+bool get_ndi_info(const char* source){
+  NDIlib_recv_create_v3_t recv_create_desc;
+  recv_create_desc.source_to_connect_to = source;
+  recv_create_desc.bandwidth = NDIlib_recv_bandwidth_audio_only; //specify receiving audio frames only
+  recv_create_desc.p_ndi_recv_name = "NDI Info";
+  pNDI_recv = NDIlib_recv_create_v3(&recv_create_desc); //create a receiver that connects to the source
+	assert(pNDI_recv);
+	NDIlib_audio_frame_v3_t audio_frame;
+  printf("Getting NDI audio info for %s...\n", source);
+  bool timeout = false;
+  bool got_info = false;
+  using namespace std::chrono;
+  const auto start_time = high_resolution_clock::now(); //get start time
+  while(timeout == false){
+	  switch (NDIlib_recv_capture_v3(pNDI_recv, nullptr, &audio_frame, nullptr, 5000)){ //try to get data from the source
+			// No data
+			case NDIlib_frame_type_none:
+				printf("No data received for NDI stream info.\n");
+				break;
+
+				// Audio data
+			case NDIlib_frame_type_audio:
+				printf("Samples (%d).\n", audio_frame.no_samples);
+        printf("Sample Rate (%d).\n", audio_frame.sample_rate);
+        printf("No Channels (%d).\n", audio_frame.no_channels);
+        stream_info[0] = audio_frame.no_samples; //store the stream info in the array
+        stream_info[1] = audio_frame.sample_rate;
+        stream_info[2] = audio_frame.no_channels;
+        timeout = true;
+        got_info = true;
+				NDIlib_recv_free_audio_v3(pNDI_recv, &audio_frame); //free the audio frame
+				break;
+		}
+    if(high_resolution_clock::now() - start_time > seconds(5)){ //timeout after 5 seconds of no data
+      timeout = true;
+      printf("Timeout in getting NDI stream info.\n");
+    }
+  }
+    // Destroy the receiver
+	NDIlib_recv_destroy(pNDI_recv);
+  return got_info;
 }
 
 static void usage(FILE *fp, int argc, char **argv){
