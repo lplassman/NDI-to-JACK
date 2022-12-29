@@ -54,7 +54,8 @@ struct receive_audio {
   NDIlib_framesync_instance_t m_pNDI_framesync; //NDI framesync
   NDIlib_audio_frame_v3_t audio_frame;
   jack_port_t **out_ports;
-  jack_default_audio_sample_t **out;
+  jack_default_audio_sample_t *out;
+  jack_default_audio_sample_t *p_ch;
   jack_client_t *jack_client;
   jack_nframes_t jack_sample_rate;
   float channel_volume = 1.0f; //set channel volume to full
@@ -65,9 +66,6 @@ struct receive_audio {
 
 int receive_audio::process(jack_nframes_t nframes){
   //Get JACK Audio Buffers
-  for (int channel = 0; channel < num_channels; channel++){
-   out[channel] = (jack_default_audio_sample_t*)jack_port_get_buffer (out_ports[channel], nframes);
-  }
   NDIlib_framesync_capture_audio_v2(m_pNDI_framesync, &audio_frame, jack_sample_rate, num_channels, nframes);
   //printf("Audio data received (%d samples).\n", audio_frame.no_samples);
   //std::cout << "Number of audio frames (JACK): " << nframes << std::endl;
@@ -75,14 +73,12 @@ int receive_audio::process(jack_nframes_t nframes){
   //std::cout << "Channel Stride in Bytes (NDI): " << audio_frame.channel_stride_in_bytes << std::endl;
   //std::cout << "Size of Audio Frame (NDI): " << sizeof(audio_frame.p_data) << std::endl;
   //std::cout << "Number of Audio Channels (NDI): " << sizeof(audio_frame.no_channels) << std::endl;
-  if(audio_frame.p_data != 0){ //make sure that there is data in the buffer before trying to copy anything
-   for (int channel = 0; channel < num_channels; channel++){
-    float* p_ch = (float*)((uint8_t*)audio_frame.p_data + channel*audio_frame.channel_stride_in_bytes); //Get channels from NDI audio frame
+  for (int channel = 0; channel < num_channels; channel++){ //go through each channel
+    out = (jack_default_audio_sample_t*)jack_port_get_buffer(out_ports[channel], nframes);
+    p_ch = (jack_default_audio_sample_t*)(uint8_t *)(&audio_frame.p_data[channel * audio_frame.channel_stride_in_bytes]); //Get channels from NDI audio frame
     for (int sample_no = 0; sample_no < audio_frame.no_samples; sample_no++){ //apply the volume to each sample
-		 p_ch[sample_no] = p_ch[sample_no] * main_volume * channel_volume;
+      out[sample_no] = p_ch[sample_no] * main_volume * channel_volume; //copies the adjusted NDI framedata into the JACK buffer
     }
-    memcpy(out[channel], p_ch, sizeof(jack_default_audio_sample_t) * nframes); //copy the audio frame from NDI to the JACK buffer
-   }
   }
   // Release the NDI audio frame. You could keep the frame if you want and release it later.
   NDIlib_framesync_free_audio_v2(m_pNDI_framesync, &audio_frame);
@@ -137,8 +133,6 @@ receive_audio::receive_audio(const char* source, const char *client_name, int ch
   
   //initialize data structures for variable channels
   out_ports = (jack_port_t**)malloc(sizeof (jack_port_t*) * num_channels);
-  size_t out_size = num_channels * sizeof(jack_default_audio_sample_t*);
-  out = (jack_default_audio_sample_t**)malloc(out_size);
 
   /* create output JACK ports */
   for (int channel = 0; channel < num_channels; channel++){
@@ -488,7 +482,7 @@ int main (int argc, char *argv[]){
      } 
     }
    }
-   p_receivers[receiver_id] = new receive_audio(ndi_name, "NDI_recv", auto_connect_jack_ports);
+   p_receivers[receiver_id] = new receive_audio(ndi_name, "NDI_recv", 2); //2 channels by default
   }
                                
   mg_mgr_init(&mgr);
