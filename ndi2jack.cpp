@@ -162,7 +162,7 @@ receive_audio::receive_audio(const char* source, const char *client_name, int ch
    * "input" to the backend, and capture ports are "output" from
    * it.
    */
-  //if(auto_connect_ports == true){ //make sure auto connect is enabled
+  if(auto_connect_jack_ports == true){ //make sure auto connect is enabled
    found_ports = jack_get_ports (jack_client, NULL, NULL, JackPortIsInput);
    if (found_ports) {
     int i;
@@ -180,7 +180,7 @@ receive_audio::receive_audio(const char* source, const char *client_name, int ch
    }
 
    jack_free (found_ports);
-  //}
+  }
 
   // Create the receiver
 	m_pNDI_recv = NDIlib_recv_create_v3(&recv_create_desc);
